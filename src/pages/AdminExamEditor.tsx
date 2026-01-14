@@ -51,6 +51,20 @@ export default function AdminExamEditor() {
     });
   };
 
+  const addListeningQuestion = (sIdx: number) => {
+    const sections = [...(content.listening?.sections || [])];
+    if (sections[sIdx]) {
+      if (!sections[sIdx].questions) sections[sIdx].questions = [];
+      sections[sIdx].questions.push({
+        id: `l${sIdx + 1}q${sections[sIdx].questions.length + 1}`,
+        type: 'fill-blank',
+        question: '',
+        correctAnswer: '',
+      });
+      setContent({ ...content, listening: { ...content.listening, sections } });
+    }
+  };
+
   const addReadingPassage = () => {
     const passages = content.reading?.passages || [];
     setContent({
@@ -68,6 +82,20 @@ export default function AdminExamEditor() {
         ],
       },
     });
+  };
+
+  const addReadingQuestion = (pIdx: number) => {
+    const passages = [...(content.reading?.passages || [])];
+    if (passages[pIdx]) {
+      if (!passages[pIdx].questions) passages[pIdx].questions = [];
+      passages[pIdx].questions.push({
+        id: `r${pIdx + 1}q${passages[pIdx].questions.length + 1}`,
+        type: 'fill-blank',
+        question: '',
+        correctAnswer: '',
+      });
+      setContent({ ...content, reading: { ...content.reading, passages } });
+    }
   };
 
   const addWritingTask = () => {
@@ -111,7 +139,7 @@ export default function AdminExamEditor() {
 
   const submit = async () => {
     if (!form.title) {
-      alert('Sarlavha kiriting');
+      alert('Please enter a title');
       return;
     }
 
@@ -134,7 +162,7 @@ export default function AdminExamEditor() {
       }
       navigate('/admin');
     } catch (err: any) {
-      alert('Xatolik: ' + (err.response?.data?.message || 'Noma\'lum xatolik'));
+      alert('Error: ' + (err.response?.data?.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -143,13 +171,13 @@ export default function AdminExamEditor() {
   return (
     <div className="card">
       <div className="section-title">
-        {isEdit ? '✏️ Imtihonni tahrirlash' : '➕ Yangi imtihon yaratish'}
+        {isEdit ? '✏️ Edit Exam' : '➕ Create New Exam'}
       </div>
 
       <div className="grid" style={{ marginBottom: 24 }}>
         <input
           className="input"
-          placeholder="Imtihon nomi *"
+          placeholder="Exam Name *"
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
         />
@@ -166,7 +194,7 @@ export default function AdminExamEditor() {
         </select>
         <textarea
           className="input"
-          placeholder="Tavsif"
+          placeholder="Description"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           style={{ minHeight: 80 }}
@@ -174,7 +202,7 @@ export default function AdminExamEditor() {
         <input
           className="input"
           type="number"
-          placeholder="Davomiyligi (daqiqa)"
+          placeholder="Duration (minutes)"
           value={form.duration}
           onChange={(e) => setForm({ ...form, duration: parseInt(e.target.value) || 0 })}
         />
@@ -186,7 +214,7 @@ export default function AdminExamEditor() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0 }}>🎧 Listening</h3>
             <button className="btn secondary" onClick={addListeningSection} style={{ fontSize: 14 }}>
-              + Section qo'shish
+              + Add Section
             </button>
           </div>
           {content.listening?.sections?.map((section: any, sIdx: number) => (
@@ -195,7 +223,7 @@ export default function AdminExamEditor() {
               <div style={{ marginBottom: 8 }}>
                 <input
                   className="input"
-                  placeholder="Audio URL yoki fayl yuklash"
+                  placeholder="Audio URL or upload file"
                   value={section.audioUrl || ''}
                   onChange={(e) => {
                     const sections = [...content.listening.sections];
@@ -204,28 +232,44 @@ export default function AdminExamEditor() {
                   }}
                   style={{ marginBottom: 8 }}
                 />
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const formData = new FormData();
-                      formData.append('file', file);
-                      try {
-                        const res = await api.post('/admin/upload/audio', formData, {
-                          headers: { 'Content-Type': 'multipart/form-data' },
-                        });
-                        const sections = [...content.listening.sections];
-                        sections[sIdx].audioUrl = `http://localhost:4000${res.data.url}`;
-                        setContent({ ...content, listening: { ...content.listening, sections } });
-                      } catch (err: any) {
-                        alert('Audio yuklashda xatolik: ' + (err.response?.data?.message || 'Noma\'lum xatolik'));
+                <div style={{ marginBottom: 8 }}>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setLoading(true);
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        try {
+                          const res = await api.post('/admin/upload/audio', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                          });
+                          const sections = [...(content.listening?.sections || [])];
+                          if (sections[sIdx]) {
+                            sections[sIdx].audioUrl = res.data.url || `/upload/${res.data.filename}`;
+                            setContent({ ...content, listening: { ...content.listening, sections } });
+                            alert('✅ Audio uploaded successfully!');
+                          }
+                        } catch (err: any) {
+                          alert('❌ Error uploading audio: ' + (err.response?.data?.message || err.message || 'Unknown error'));
+                        } finally {
+                          setLoading(false);
+                          // Reset file input
+                          e.target.value = '';
+                        }
                       }
-                    }
-                  }}
-                  style={{ fontSize: 13 }}
-                />
+                    }}
+                    style={{ fontSize: 13, padding: '8px', width: '100%', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                    disabled={loading}
+                  />
+                  {loading && (
+                    <div style={{ marginTop: 8, fontSize: 13, color: '#2563eb' }}>
+                      ⏳ Uploading audio...
+                    </div>
+                  )}
+                </div>
                 {section.audioUrl && (
                   <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
                     ✅ Audio: {section.audioUrl}
@@ -237,15 +281,85 @@ export default function AdminExamEditor() {
                 placeholder="Transcript"
                 value={section.transcript || ''}
                 onChange={(e) => {
-                  const sections = [...content.listening.sections];
-                  sections[sIdx].transcript = e.target.value;
-                  setContent({ ...content, listening: { ...content.listening, sections } });
+                  const sections = [...(content.listening?.sections || [])];
+                  if (sections[sIdx]) {
+                    sections[sIdx].transcript = e.target.value;
+                    setContent({ ...content, listening: { ...content.listening, sections } });
+                  }
                 }}
                 style={{ minHeight: 80, marginBottom: 8 }}
               />
-              <div className="muted" style={{ fontSize: 13 }}>
-                Savollar: {section.questions?.length || 0} ta
-              </div>
+              <button 
+                className="btn ghost" 
+                onClick={() => addListeningQuestion(sIdx)} 
+                style={{ marginBottom: 12, fontSize: 13, color: '#2563eb', borderColor: '#2563eb' }}
+              >
+                + Add Question
+              </button>
+              {section.questions && section.questions.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  {section.questions.map((q: any, qIdx: number) => (
+                    <div key={qIdx} style={{ marginBottom: 12, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <input
+                        className="input"
+                        placeholder="Question text"
+                        value={q.question || ''}
+                        onChange={(e) => {
+                          const sections = [...(content.listening?.sections || [])];
+                          if (sections[sIdx] && sections[sIdx].questions) {
+                            sections[sIdx].questions[qIdx].question = e.target.value;
+                            setContent({ ...content, listening: { ...content.listening, sections } });
+                          }
+                        }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
+                      />
+                      <select
+                        className="input"
+                        value={q.type || 'fill-blank'}
+                        onChange={(e) => {
+                          const sections = [...(content.listening?.sections || [])];
+                          if (sections[sIdx] && sections[sIdx].questions) {
+                            sections[sIdx].questions[qIdx].type = e.target.value;
+                            setContent({ ...content, listening: { ...content.listening, sections } });
+                          }
+                        }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
+                      >
+                        <option value="fill-blank">Fill-in-the-blank</option>
+                        <option value="multiple-choice">Multiple Choice</option>
+                      </select>
+                      {q.type === 'multiple-choice' && (
+                        <textarea
+                          className="input"
+                          placeholder="Options (write each on a new line: A, B, C)"
+                          value={q.options?.join('\n') || ''}
+                          onChange={(e) => {
+                            const sections = [...(content.listening?.sections || [])];
+                            if (sections[sIdx] && sections[sIdx].questions) {
+                              sections[sIdx].questions[qIdx].options = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                              setContent({ ...content, listening: { ...content.listening, sections } });
+                            }
+                          }}
+                          style={{ minHeight: 60, marginBottom: 8, fontSize: 13 }}
+                        />
+                      )}
+                      <input
+                        className="input"
+                        placeholder="Correct answer"
+                        value={q.correctAnswer || ''}
+                        onChange={(e) => {
+                          const sections = [...(content.listening?.sections || [])];
+                          if (sections[sIdx] && sections[sIdx].questions) {
+                            sections[sIdx].questions[qIdx].correctAnswer = e.target.value;
+                            setContent({ ...content, listening: { ...content.listening, sections } });
+                          }
+                        }}
+                        style={{ fontSize: 13 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -257,7 +371,7 @@ export default function AdminExamEditor() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0 }}>📖 Reading</h3>
             <button className="btn secondary" onClick={addReadingPassage} style={{ fontSize: 14 }}>
-              + Passage qo'shish
+              + Add Passage
             </button>
           </div>
           {content.reading?.passages?.map((passage: any, pIdx: number) => (
@@ -265,7 +379,7 @@ export default function AdminExamEditor() {
               <div style={{ fontWeight: 700, marginBottom: 12 }}>Passage {passage.passageNumber}</div>
               <input
                 className="input"
-                placeholder="Sarlavha"
+                placeholder="Title"
                 value={passage.title || ''}
                 onChange={(e) => {
                   const passages = [...content.reading.passages];
@@ -279,15 +393,85 @@ export default function AdminExamEditor() {
                 placeholder="Matn"
                 value={passage.content || ''}
                 onChange={(e) => {
-                  const passages = [...content.reading.passages];
-                  passages[pIdx].content = e.target.value;
-                  setContent({ ...content, reading: { ...content.reading, passages } });
+                  const passages = [...(content.reading?.passages || [])];
+                  if (passages[pIdx]) {
+                    passages[pIdx].content = e.target.value;
+                    setContent({ ...content, reading: { ...content.reading, passages } });
+                  }
                 }}
                 style={{ minHeight: 120, marginBottom: 8 }}
               />
-              <div className="muted" style={{ fontSize: 13 }}>
-                Savollar: {passage.questions?.length || 0} ta
-              </div>
+              <button 
+                className="btn ghost" 
+                onClick={() => addReadingQuestion(pIdx)} 
+                style={{ marginBottom: 12, fontSize: 13, color: '#2563eb', borderColor: '#2563eb' }}
+              >
+                + Add Question
+              </button>
+              {passage.questions && passage.questions.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  {passage.questions.map((q: any, qIdx: number) => (
+                    <div key={qIdx} style={{ marginBottom: 12, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <input
+                        className="input"
+                        placeholder="Question text"
+                        value={q.question || ''}
+                        onChange={(e) => {
+                          const passages = [...(content.reading?.passages || [])];
+                          if (passages[pIdx] && passages[pIdx].questions) {
+                            passages[pIdx].questions[qIdx].question = e.target.value;
+                            setContent({ ...content, reading: { ...content.reading, passages } });
+                          }
+                        }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
+                      />
+                      <select
+                        className="input"
+                        value={q.type || 'fill-blank'}
+                        onChange={(e) => {
+                          const passages = [...(content.reading?.passages || [])];
+                          if (passages[pIdx] && passages[pIdx].questions) {
+                            passages[pIdx].questions[qIdx].type = e.target.value;
+                            setContent({ ...content, reading: { ...content.reading, passages } });
+                          }
+                        }}
+                        style={{ marginBottom: 8, fontSize: 13 }}
+                      >
+                        <option value="fill-blank">Fill-in-the-blank</option>
+                        <option value="multiple-choice">Multiple Choice</option>
+                      </select>
+                      {q.type === 'multiple-choice' && (
+                        <textarea
+                          className="input"
+                          placeholder="Options (write each on a new line: A, B, C)"
+                          value={q.options?.join('\n') || ''}
+                          onChange={(e) => {
+                            const passages = [...(content.reading?.passages || [])];
+                            if (passages[pIdx] && passages[pIdx].questions) {
+                              passages[pIdx].questions[qIdx].options = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                              setContent({ ...content, reading: { ...content.reading, passages } });
+                            }
+                          }}
+                          style={{ minHeight: 60, marginBottom: 8, fontSize: 13 }}
+                        />
+                      )}
+                      <input
+                        className="input"
+                        placeholder="Correct answer"
+                        value={q.correctAnswer || ''}
+                        onChange={(e) => {
+                          const passages = [...(content.reading?.passages || [])];
+                          if (passages[pIdx] && passages[pIdx].questions) {
+                            passages[pIdx].questions[qIdx].correctAnswer = e.target.value;
+                            setContent({ ...content, reading: { ...content.reading, passages } });
+                          }
+                        }}
+                        style={{ fontSize: 13 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -299,7 +483,7 @@ export default function AdminExamEditor() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0 }}>✍️ Writing</h3>
             <button className="btn secondary" onClick={addWritingTask} style={{ fontSize: 14 }}>
-              + Task qo'shish
+              + Add Task
             </button>
           </div>
           {content.writing?.tasks?.map((task: any, tIdx: number) => (
@@ -307,7 +491,7 @@ export default function AdminExamEditor() {
               <div style={{ fontWeight: 700, marginBottom: 12 }}>Task {task.taskNumber}</div>
               <input
                 className="input"
-                placeholder="Sarlavha"
+                placeholder="Title"
                 value={task.title || ''}
                 onChange={(e) => {
                   const tasks = [...content.writing.tasks];
@@ -318,24 +502,41 @@ export default function AdminExamEditor() {
               />
               <textarea
                 className="input"
-                placeholder="Tavsif"
+                placeholder="Description"
                 value={task.description || ''}
                 onChange={(e) => {
-                  const tasks = [...content.writing.tasks];
-                  tasks[tIdx].description = e.target.value;
-                  setContent({ ...content, writing: { ...content.writing, tasks } });
+                  const tasks = [...(content.writing?.tasks || [])];
+                  if (tasks[tIdx]) {
+                    tasks[tIdx].description = e.target.value;
+                    setContent({ ...content, writing: { ...content.writing, tasks } });
+                  }
                 }}
                 style={{ minHeight: 100, marginBottom: 8 }}
               />
               <input
                 className="input"
                 type="number"
-                placeholder="So'zlar soni"
+                placeholder="Word count"
                 value={task.wordCount || ''}
                 onChange={(e) => {
-                  const tasks = [...content.writing.tasks];
-                  tasks[tIdx].wordCount = parseInt(e.target.value) || 0;
-                  setContent({ ...content, writing: { ...content.writing, tasks } });
+                  const tasks = [...(content.writing?.tasks || [])];
+                  if (tasks[tIdx]) {
+                    tasks[tIdx].wordCount = parseInt(e.target.value) || 0;
+                    setContent({ ...content, writing: { ...content.writing, tasks } });
+                  }
+                }}
+                style={{ marginBottom: 8 }}
+              />
+              <input
+                className="input"
+                placeholder="Image URL (optional)"
+                value={task.imageUrl || ''}
+                onChange={(e) => {
+                  const tasks = [...(content.writing?.tasks || [])];
+                  if (tasks[tIdx]) {
+                    tasks[tIdx].imageUrl = e.target.value;
+                    setContent({ ...content, writing: { ...content.writing, tasks } });
+                  }
                 }}
               />
             </div>
@@ -349,7 +550,7 @@ export default function AdminExamEditor() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0 }}>🗣️ Speaking</h3>
             <button className="btn secondary" onClick={addSpeakingPart} style={{ fontSize: 14 }}>
-              + Part qo'shish
+              + Add Part
             </button>
           </div>
           {content.speaking?.parts?.map((part: any, pIdx: number) => (
@@ -357,7 +558,7 @@ export default function AdminExamEditor() {
               <div style={{ fontWeight: 700, marginBottom: 12 }}>Part {part.partNumber}</div>
               <input
                 className="input"
-                placeholder="Sarlavha"
+                placeholder="Title"
                 value={part.title || ''}
                 onChange={(e) => {
                   const parts = [...content.speaking.parts];
@@ -368,14 +569,55 @@ export default function AdminExamEditor() {
               />
               <textarea
                 className="input"
-                placeholder="Tavsif"
+                placeholder="Description"
                 value={part.description || ''}
                 onChange={(e) => {
-                  const parts = [...content.speaking.parts];
-                  parts[pIdx].description = e.target.value;
-                  setContent({ ...content, speaking: { ...content.speaking, parts } });
+                  const parts = [...(content.speaking?.parts || [])];
+                  if (parts[pIdx]) {
+                    parts[pIdx].description = e.target.value;
+                    setContent({ ...content, speaking: { ...content.speaking, parts } });
+                  }
                 }}
                 style={{ minHeight: 80, marginBottom: 8 }}
+              />
+              <textarea
+                className="input"
+                placeholder="Questions (write each on a new line)"
+                value={part.questions?.join('\n') || ''}
+                onChange={(e) => {
+                  const parts = [...(content.speaking?.parts || [])];
+                  if (parts[pIdx]) {
+                    parts[pIdx].questions = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                    setContent({ ...content, speaking: { ...content.speaking, parts } });
+                  }
+                }}
+                style={{ minHeight: 80, marginBottom: 8 }}
+              />
+              <input
+                className="input"
+                placeholder="Topic (optional)"
+                value={part.topic || ''}
+                onChange={(e) => {
+                  const parts = [...(content.speaking?.parts || [])];
+                  if (parts[pIdx]) {
+                    parts[pIdx].topic = e.target.value;
+                    setContent({ ...content, speaking: { ...content.speaking, parts } });
+                  }
+                }}
+                style={{ marginBottom: 8 }}
+              />
+              <input
+                className="input"
+                type="number"
+                placeholder="Time limit (minutes, optional)"
+                value={part.timeLimit || ''}
+                onChange={(e) => {
+                  const parts = [...(content.speaking?.parts || [])];
+                  if (parts[pIdx]) {
+                    parts[pIdx].timeLimit = parseInt(e.target.value) || 0;
+                    setContent({ ...content, speaking: { ...content.speaking, parts } });
+                  }
+                }}
               />
             </div>
           ))}
@@ -411,10 +653,10 @@ export default function AdminExamEditor() {
             }
           }}
         >
-          Bekor qilish
+          Cancel
         </button>
         <button className="btn" onClick={submit} disabled={loading}>
-          {loading ? 'Saqlanmoqda...' : isEdit ? 'Saqlash' : 'Yaratish'}
+          {loading ? 'Saving...' : isEdit ? 'Save' : 'Create'}
         </button>
       </div>
     </div>

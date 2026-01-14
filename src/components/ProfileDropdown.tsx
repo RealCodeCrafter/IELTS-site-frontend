@@ -58,7 +58,7 @@ export default function ProfileDropdown() {
       setIsEditing(false);
       setIsOpen(false);
     } catch (err: any) {
-      alert('Xatolik: ' + (err.response?.data?.message || 'Noma\'lum xatolik'));
+      alert('Error: ' + (err.response?.data?.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }

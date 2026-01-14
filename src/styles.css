@@ -345,6 +345,63 @@ textarea {
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.3);
 }
 
+/* Exam page specific styles */
+.exam-container {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.exam-sticky-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  padding: 16px 24px;
+  width: 100%;
+}
+
+.exam-content-wrapper {
+  flex: 1;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  overflow-y: auto;
+}
+
+.exam-sticky-footer {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border-top: 2px solid #e2e8f0;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+  border-radius: 0;
+  padding: 16px 24px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+/* Prevent scroll jumping */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .layout {
@@ -359,8 +416,18 @@ textarea {
     padding: 28px;
   }
   
-  .grid.two {
+  .grid.two,
+  .grid.three,
+  .grid.four {
     grid-template-columns: 1fr;
+  }
+  
+  .exam-sticky-header {
+    top: 0;
+  }
+  
+  .exam-sticky-footer {
+    bottom: 0;
   }
 }
 

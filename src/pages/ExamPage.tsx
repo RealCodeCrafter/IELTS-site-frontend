@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import ExamTimer from '../components/ExamTimer';
+import AudioRecorder from '../components/AudioRecorder';
 
 interface Question {
   id: string;
@@ -42,12 +43,23 @@ export default function ExamPage() {
     }
   }, [id]);
 
+  // Prevent scroll jumping
+  useEffect(() => {
+    if (examStarted) {
+      window.scrollTo(0, 0);
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [examStarted, activeSection]);
+
   if (loading) {
     return (
       <div className="card">
         <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>
           <div style={{ fontSize: '24px', marginBottom: 12 }}>⏳</div>
-          <div>Imtihon yuklanmoqda...</div>
+          <div>Loading exam...</div>
         </div>
       </div>
     );
@@ -58,7 +70,7 @@ export default function ExamPage() {
       <div className="card">
         <div style={{ textAlign: 'center', padding: '60px', color: '#e11d48' }}>
           <div style={{ fontSize: '24px', marginBottom: 12 }}>❌</div>
-          <div>Imtihon topilmadi</div>
+          <div>Exam not found</div>
         </div>
       </div>
     );
@@ -68,7 +80,7 @@ export default function ExamPage() {
     if (e) e.preventDefault();
     if (!user) return;
     
-    if (window.confirm('Imtihonni topshirishni tasdiqlaysizmi? Keyin o\'zgartirib bo\'lmaydi.')) {
+    if (window.confirm('Are you sure you want to submit the exam? You cannot change your answers after submission.')) {
       try {
         // Convert audio blobs to base64
         const processedAnswers: Record<string, string> = {};
@@ -89,13 +101,13 @@ export default function ExamPage() {
         await api.post(`/exams/${exam.id}/submit`, { userId: user.id, answers: processedAnswers });
         navigate('/dashboard');
       } catch (err: any) {
-        alert('Xatolik yuz berdi: ' + (err.response?.data?.message || 'Noma\'lum xatolik'));
+        alert('Error: ' + (err.response?.data?.message || 'Unknown error'));
       }
     }
   };
 
   const handleTimeUp = () => {
-    alert('Vaqt tugadi! Imtihon avtomatik topshiriladi.');
+    alert('Time is up! The exam will be submitted automatically.');
     submit();
   };
 
@@ -110,17 +122,17 @@ export default function ExamPage() {
           <div style={{ fontSize: '48px', marginBottom: 20 }}>📝</div>
           <div className="section-title" style={{ marginBottom: 12 }}>{exam.title}</div>
           <div className="muted" style={{ marginBottom: 24, fontSize: 15 }}>
-            {content.description || 'IELTS imtihonini boshlashga tayyormisiz?'}
+            {content.description || 'Are you ready to start the IELTS exam?'}
           </div>
           
           <div style={{ background: '#f8fafc', padding: 20, borderRadius: 12, marginBottom: 24, textAlign: 'left' }}>
-            <div style={{ fontWeight: 600, marginBottom: 12 }}>Imtihon ma'lumotlari:</div>
+            <div style={{ fontWeight: 600, marginBottom: 12 }}>Exam Information:</div>
             <div style={{ fontSize: 14, lineHeight: 2, color: '#475569' }}>
-              <div>⏱️ Davomiyligi: {duration} daqiqa</div>
-              {content.listening && <div>🎧 Listening bo'limi mavjud</div>}
-              {content.reading && <div>📖 Reading bo'limi mavjud</div>}
-              {content.writing && <div>✍️ Writing bo'limi mavjud</div>}
-              {content.speaking && <div>🗣️ Speaking bo'limi mavjud</div>}
+              <div>⏱️ Duration: {duration} minutes</div>
+              {content.listening && <div>🎧 Listening section available</div>}
+              {content.reading && <div>📖 Reading section available</div>}
+              {content.writing && <div>✍️ Writing section available</div>}
+              {content.speaking && <div>🗣️ Speaking section available</div>}
             </div>
           </div>
 
@@ -148,14 +160,14 @@ export default function ExamPage() {
                 e.currentTarget.style.borderColor = '#cbd5e1';
               }}
             >
-              Orqaga
+              Back
             </button>
             <button 
               className="btn" 
               onClick={() => setExamStarted(true)}
               style={{ minWidth: 200 }}
             >
-              ✅ Imtihonni boshlash
+              ✅ Start Exam
             </button>
           </div>
         </div>
@@ -164,21 +176,21 @@ export default function ExamPage() {
   }
 
   return (
-    <div style={{ position: 'relative', paddingBottom: 100 }}>
-      {/* Header with Timer */}
-      <div className="card" style={{ position: 'sticky', top: 24, zIndex: 100, marginBottom: 20, background: 'rgba(255, 255, 255, 0.98)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+    <div className="exam-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Header with Timer - Sticky at top */}
+      <div className="exam-sticky-header">
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, width: '100%' }}>
           <div>
-            <div className="section-title" style={{ marginBottom: 4 }}>{exam.title}</div>
+            <div className="section-title" style={{ marginBottom: 4, fontSize: 20 }}>{exam.title}</div>
             <div className="muted" style={{ fontSize: 14 }}>
-              {duration} daqiqa
+              {duration} minutes
             </div>
           </div>
           <ExamTimer duration={duration} onTimeUp={handleTimeUp} isStarted={examStarted} />
         </div>
         
         {/* Section Navigation */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: 1200, margin: '16px auto 0', display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
           {content.listening && (
             <button
               className={activeSection === 'listening' ? 'btn' : 'btn ghost'}
@@ -218,7 +230,8 @@ export default function ExamPage() {
         </div>
       </div>
 
-      <form onSubmit={submit}>
+      <div className="exam-content-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
+      <form onSubmit={submit} style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 100px' }}>
         {/* Listening Section */}
         {activeSection === 'listening' && content.listening && (
           <div className="card">
@@ -227,7 +240,7 @@ export default function ExamPage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: '24px' }}>Listening</h2>
                 <div className="muted" style={{ fontSize: 14 }}>
-                  Audio tinglang va savollarga javob bering
+                  Listen to the audio and answer the questions
                 </div>
               </div>
             </div>
@@ -247,15 +260,17 @@ export default function ExamPage() {
 
                 {section.audioUrl && (
                   <div style={{ marginBottom: 24, padding: 20, background: '#f8fafc', borderRadius: 12, border: '2px solid #e2e8f0' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 16 }}>🎧 Audio tinglash</div>
-                    <audio controls style={{ width: '100%', marginBottom: 12 }}>
-                      <source src={section.audioUrl} type="audio/mpeg" />
-                      Sizning brauzeringiz audio elementini qo'llab-quvvatlamaydi.
+                    <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 16 }}>🎧 Listen to Audio</div>
+                    <audio controls style={{ width: '100%', marginBottom: 12 }} preload="auto">
+                      <source src={section.audioUrl.startsWith('http') ? section.audioUrl : `http://localhost:4000${section.audioUrl}`} type="audio/mpeg" />
+                      <source src={section.audioUrl.startsWith('http') ? section.audioUrl : `http://localhost:4000${section.audioUrl}`} type="audio/wav" />
+                      <source src={section.audioUrl.startsWith('http') ? section.audioUrl : `http://localhost:4000${section.audioUrl}`} type="audio/webm" />
+                      Your browser does not support the audio element.
                     </audio>
                     {section.transcript && (
                       <details style={{ marginTop: 12 }}>
                         <summary style={{ cursor: 'pointer', color: '#2563eb', fontWeight: 600, fontSize: 14 }}>
-                          📄 Transcript ko'rish
+                          📄 View Transcript
                         </summary>
                         <div style={{ marginTop: 12, padding: 16, background: 'white', borderRadius: 8, fontSize: 14, lineHeight: 1.8 }}>
                           {section.transcript}
@@ -266,7 +281,8 @@ export default function ExamPage() {
                 )}
 
                 {section.questions && Array.isArray(section.questions) && section.questions.map((q: Question, qIdx: number) => {
-                  const isAnswered = answers[`listening_${q.id}`]?.trim();
+                  const answerValue = answers[`listening_${q.id}`];
+                  const isAnswered = answerValue && (typeof answerValue === 'string' ? answerValue.trim() : true);
                   
                   return (
                     <div 
@@ -305,7 +321,7 @@ export default function ExamPage() {
                                 type="radio"
                                 name={`listening_${q.id}`}
                                 value={opt}
-                                checked={answers[`listening_${q.id}`] === opt}
+                                checked={answers[`listening_${q.id}`] === opt && typeof answers[`listening_${q.id}`] === 'string'}
                                 onChange={(e) => setAnswers({ ...answers, [`listening_${q.id}`]: e.target.value })}
                                 style={{ width: 18, height: 18, cursor: 'pointer' }}
                               />
@@ -316,8 +332,8 @@ export default function ExamPage() {
                       ) : (
                         <input
                           className="input"
-                          placeholder="Javobingizni kiriting"
-                          value={answers[`listening_${q.id}`] || ''}
+                          placeholder="Enter your answer"
+                          value={typeof answers[`listening_${q.id}`] === 'string' ? answers[`listening_${q.id}`] : ''}
                           onChange={(e) => setAnswers({ ...answers, [`listening_${q.id}`]: e.target.value })}
                           style={{ fontSize: 15 }}
                         />
@@ -338,7 +354,7 @@ export default function ExamPage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: '24px' }}>Reading</h2>
                 <div className="muted" style={{ fontSize: 14 }}>
-                  Matnlarni o'qing va savollarga javob bering
+                  Read the passages and answer the questions
                 </div>
               </div>
             </div>
@@ -361,7 +377,8 @@ export default function ExamPage() {
                   {passage.content}
                 </div>
                 {passage.questions && Array.isArray(passage.questions) && passage.questions.map((q: Question, qIdx: number) => {
-                  const isAnswered = answers[`reading_${q.id}`]?.trim();
+                  const answerValue = answers[`reading_${q.id}`];
+                  const isAnswered = answerValue && (typeof answerValue === 'string' ? answerValue.trim() : true);
                   
                   return (
                     <div 
@@ -400,7 +417,7 @@ export default function ExamPage() {
                                 type="radio"
                                 name={`reading_${q.id}`}
                                 value={opt}
-                                checked={answers[`reading_${q.id}`] === opt}
+                                checked={answers[`reading_${q.id}`] === opt && typeof answers[`reading_${q.id}`] === 'string'}
                                 onChange={(e) => setAnswers({ ...answers, [`reading_${q.id}`]: e.target.value })}
                                 style={{ width: 18, height: 18, cursor: 'pointer' }}
                               />
@@ -411,8 +428,8 @@ export default function ExamPage() {
                       ) : (
                         <input
                           className="input"
-                          placeholder="Javobingizni kiriting"
-                          value={answers[`reading_${q.id}`] || ''}
+                          placeholder="Enter your answer"
+                          value={typeof answers[`reading_${q.id}`] === 'string' ? answers[`reading_${q.id}`] : ''}
                           onChange={(e) => setAnswers({ ...answers, [`reading_${q.id}`]: e.target.value })}
                           style={{ fontSize: 15 }}
                         />
@@ -433,7 +450,7 @@ export default function ExamPage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: '24px' }}>Writing</h2>
                 <div className="muted" style={{ fontSize: 14 }}>
-                  Topshiriqlarni bajarib, esselarni yozing
+                  Complete the tasks and write essays
                 </div>
               </div>
             </div>
@@ -470,12 +487,12 @@ export default function ExamPage() {
                   className="input"
                   style={{ minHeight: 300, fontSize: 15, lineHeight: 1.8 }}
                   placeholder={`Task ${task.taskNumber || tIdx + 1} javobingizni yozing${task.wordCount ? ` (minimum ${task.wordCount} so'z)` : ''}`}
-                  value={answers[`writing_task${task.taskNumber || tIdx + 1}`] || ''}
+                  value={typeof answers[`writing_task${task.taskNumber || tIdx + 1}`] === 'string' ? answers[`writing_task${task.taskNumber || tIdx + 1}`] : ''}
                   onChange={(e) => setAnswers({ ...answers, [`writing_task${task.taskNumber || tIdx + 1}`]: e.target.value })}
                 />
-                {answers[`writing_task${task.taskNumber || tIdx + 1}`] && task.wordCount && (
+                {answers[`writing_task${task.taskNumber || tIdx + 1}`] && typeof answers[`writing_task${task.taskNumber || tIdx + 1}`] === 'string' && task.wordCount && (
                   <div style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>
-                    So'zlar soni: {answers[`writing_task${task.taskNumber || tIdx + 1}`].split(/\s+/).filter((w) => w.length > 0).length} / {task.wordCount}
+                    Word count: {answers[`writing_task${task.taskNumber || tIdx + 1}`].split(/\s+/).filter((w) => w.length > 0).length} / {task.wordCount}
                   </div>
                 )}
               </div>
@@ -491,7 +508,7 @@ export default function ExamPage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: '24px' }}>Speaking</h2>
                 <div className="muted" style={{ fontSize: 14 }}>
-                  Savollarga javob bering va transkript yozing
+                  Answer the questions and write a transcript
                 </div>
               </div>
             </div>
@@ -523,47 +540,51 @@ export default function ExamPage() {
                       <div style={{ fontSize: 16, color: '#2563eb' }}>{part.topic}</div>
                       {part.timeLimit && (
                         <div style={{ marginTop: 8, fontSize: 14, color: '#64748b' }}>
-                          ⏱️ Vaqt: {part.timeLimit} daqiqa
+                          ⏱️ Time: {part.timeLimit} minutes
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-                <AudioRecorder
-                  onRecordingComplete={(audioBlob) => {
-                    setAnswers({ ...answers, [`speaking_part${part.partNumber || pIdx + 1}`]: audioBlob });
-                  }}
-                  maxDuration={part.timeLimit ? part.timeLimit * 60 : 120}
+                <div style={{ marginBottom: 20 }}>
+                  <AudioRecorder
+                    onRecordingComplete={(audioBlob) => {
+                      setAnswers({ ...answers, [`speaking_part${part.partNumber || pIdx + 1}_audio`]: audioBlob });
+                    }}
+                    maxDuration={part.timeLimit ? part.timeLimit * 60 : 120}
+                  />
+                </div>
+                <textarea
+                  className="input"
+                  style={{ minHeight: 200, fontSize: 15, lineHeight: 1.8, marginTop: 16 }}
+                  placeholder={`Enter your answer for Part ${part.partNumber || pIdx + 1} (transcript - optional)`}
+                  value={typeof answers[`speaking_part${part.partNumber || pIdx + 1}`] === 'string' ? answers[`speaking_part${part.partNumber || pIdx + 1}`] : ''}
+                  onChange={(e) => setAnswers({ ...answers, [`speaking_part${part.partNumber || pIdx + 1}`]: e.target.value })}
                 />
               </div>
             ))}
           </div>
         )}
 
-        {/* Submit Button - Fixed at bottom */}
-        <div 
-          className="card" 
-          style={{ 
-            position: 'fixed', 
-            bottom: 0, 
-            left: 0, 
-            right: 0, 
-            zIndex: 1000,
-            borderRadius: 0,
-            borderTop: '2px solid #e2e8f0',
-            boxShadow: '0 -4px 20px rgba(0,0,0,0.1)'
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
-            <div style={{ fontSize: 14, color: '#64748b' }}>
-              Javob berilgan: {Object.values(answers).filter(a => a && a.trim()).length} ta
-            </div>
-            <button className="btn" type="submit" style={{ minWidth: '200px', fontSize: 16 }}>
-              ✅ Imtihonni topshirish
-            </button>
-          </div>
-        </div>
       </form>
+      </div>
+
+      {/* Submit Button - Sticky at bottom */}
+      <div className="exam-sticky-footer">
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, width: '100%' }}>
+          <div style={{ fontSize: 14, color: '#64748b' }}>
+            Answers submitted: {Object.values(answers).filter(a => {
+              if (!a) return false;
+              if (typeof a === 'string') return a.trim().length > 0;
+              if (a instanceof Blob) return true;
+              return true;
+            }).length}
+          </div>
+          <button className="btn" type="button" onClick={submit} style={{ minWidth: '200px', fontSize: 16 }}>
+            ✅ Submit Exam
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

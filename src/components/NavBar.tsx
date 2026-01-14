@@ -7,12 +7,12 @@ export default function NavBar() {
 
   return (
     <div className="nav">
-      <div className="nav-brand">IELTS Hub</div>
-      {user?.role === 'admin' && <Link to="/admin">Admin</Link>}
-      <div className="nav-spacer">
-        {user && <ProfileDropdown />}
+        <div className="nav-brand">IELTS Hub</div>
+        {user?.role === 'admin' && <Link to="/admin">Admin</Link>}
+        <div className="nav-spacer">
+          {user && <ProfileDropdown />}
+        </div>
       </div>
-    </div>
   );
 }
 

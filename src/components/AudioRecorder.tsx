@@ -25,25 +25,49 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Try to use the best available mime type
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        mimeType = 'audio/ogg';
+      }
+      
+      const options: MediaRecorderOptions = { mimeType };
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-        onRecordingComplete(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
+        try {
+          const blobType = mimeType.split(';')[0] || 'audio/webm';
+          const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+          const url = URL.createObjectURL(audioBlob);
+          setAudioUrl(url);
+          onRecordingComplete(audioBlob);
+          stream.getTracks().forEach(track => track.stop());
+        } catch (err) {
+          console.error('Error creating audio blob:', err);
+          alert('Error processing audio recording. Please try again.');
+        }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        alert('Error during recording. Please try again.');
+        stopRecording();
+      };
+
+      mediaRecorder.start(1000); // Collect data every second
       setIsRecording(true);
       setDuration(0);
 
@@ -57,19 +81,36 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
           return prev + 1;
         });
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error accessing microphone:', err);
-      alert('Mikrofon ruxsati kerak. Iltimos, brauzer sozlamalaridan mikrofon ruxsatini bering.');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        alert('Microphone permission required. Please grant microphone access in your browser settings.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        alert('No microphone found. Please connect a microphone and try again.');
+      } else {
+        alert('Error accessing microphone: ' + (err.message || 'Unknown error'));
+      }
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (durationTimerRef.current) {
-        clearInterval(durationTimerRef.current);
-        durationTimerRef.current = null;
+      try {
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+        setIsRecording(false);
+        if (durationTimerRef.current) {
+          clearInterval(durationTimerRef.current);
+          durationTimerRef.current = null;
+        }
+      } catch (err) {
+        console.error('Error stopping recording:', err);
+        setIsRecording(false);
+        if (durationTimerRef.current) {
+          clearInterval(durationTimerRef.current);
+          durationTimerRef.current = null;
+        }
       }
     }
   };
@@ -92,9 +133,9 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
   return (
     <div style={{ padding: 20, background: '#f8fafc', borderRadius: 12, border: '2px solid #e2e8f0' }}>
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 16 }}>🎤 Audio yozib olish</div>
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 16 }}>🎤 Audio Recording</div>
         <div className="muted" style={{ fontSize: 13 }}>
-          Mikrofonni bosing va gapiring. Maksimal vaqt: {formatTime(maxDuration)}
+          Click the microphone and speak. Maximum time: {formatTime(maxDuration)}
         </div>
       </div>
 
@@ -111,7 +152,7 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
                 background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
               }}
             >
-              🎤 Yozib olishni boshlash
+              🎤 Start Recording
             </button>
           ) : (
             <>
@@ -142,7 +183,7 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
                   background: '#dc2626',
                 }}
               >
-                ⏹️ To'xtatish
+                ⏹️ Stop
               </button>
             </>
           )}
@@ -152,7 +193,7 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
           <audio controls style={{ width: '100%' }} src={audioUrl} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn secondary" onClick={resetRecording} style={{ flex: 1 }}>
-              🔄 Qayta yozish
+              🔄 Record Again
             </button>
             <div className="muted" style={{ 
               flex: 1, 
@@ -161,7 +202,7 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
               justifyContent: 'center',
               fontSize: 13
             }}>
-              ✅ Yozib olindi
+              ✅ Recorded
             </div>
           </div>
         </div>
@@ -176,6 +217,7 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
     </div>
   );
 }
+
 
 
 

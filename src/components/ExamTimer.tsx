@@ -53,7 +53,7 @@ export default function ExamTimer({ duration, onTimeUp, isStarted }: ExamTimerPr
       <span>
         {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
       </span>
-      {isWarning && <span style={{ fontSize: 14 }}>Vaqt tugayapti!</span>}
+      {isWarning && <span style={{ fontSize: 14 }}>Time running out!</span>}
     </div>
   );
 }

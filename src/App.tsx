@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import StudentDashboard from './pages/StudentDashboard';
@@ -12,12 +13,15 @@ import { useAuth } from './hooks/useAuth';
 function App() {
   const { user } = useAuth();
   const location = useLocation();
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/';
+  
+  console.log('App render - current path:', location.pathname);
 
   return (
-    <div className="layout">
+    <div className={location.pathname === '/' ? '' : 'layout'}>
       {!isAuthPage && <NavBar />}
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -30,25 +34,25 @@ function App() {
                 <StudentDashboard />
               )
             ) : (
-              <Navigate to="/login" />
+              <Navigate to="/" />
             )
           }
         />
-        <Route path="/exam/:id" element={user ? <ExamPage /> : <Navigate to="/login" />} />
-        <Route path="/attempt/:id" element={user ? <AttemptResult /> : <Navigate to="/login" />} />
+        <Route path="/exam/:id" element={user ? <ExamPage /> : <Navigate to="/" />} />
+        <Route path="/attempt/:id" element={user ? <AttemptResult /> : <Navigate to="/" />} />
         <Route
           path="/admin"
-          element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />}
+          element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />}
         />
         <Route
           path="/admin/exams/create"
-          element={user?.role === 'admin' ? <AdminExamEditor /> : <Navigate to="/login" />}
+          element={user?.role === 'admin' ? <AdminExamEditor /> : <Navigate to="/" />}
         />
         <Route
           path="/admin/exams/:id/edit"
-          element={user?.role === 'admin' ? <AdminExamEditor /> : <Navigate to="/login" />}
+          element={user?.role === 'admin' ? <AdminExamEditor /> : <Navigate to="/" />}
         />
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>
   );
