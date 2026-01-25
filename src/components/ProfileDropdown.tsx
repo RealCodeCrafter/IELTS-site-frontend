@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
+import { paymentsApi } from '../api/payments';
 
 export default function ProfileDropdown() {
   const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
@@ -15,7 +17,20 @@ export default function ProfileDropdown() {
     city: '',
   });
   const [loading, setLoading] = useState(false);
+  const [balance, setBalance] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const loadBalance = async () => {
+    if (user) {
+      try {
+        const info = await paymentsApi.getUserAccess();
+        setBalance(info.balance);
+      } catch (err) {
+        console.error('Error loading balance:', err);
+        setBalance(0);
+      }
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -28,8 +43,26 @@ export default function ProfileDropdown() {
           city: userData.profile?.city || '',
         });
       });
+      loadBalance();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Reload balance when dropdown opens
+  useEffect(() => {
+    if (isOpen && user) {
+      loadBalance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Reload balance when navigating away from payment page
+  useEffect(() => {
+    if (user && location.pathname !== '/payment') {
+      loadBalance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -195,6 +228,50 @@ export default function ProfileDropdown() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* Balance Display */}
+              <div style={{
+                padding: '12px',
+                background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                borderRadius: '8px',
+                color: 'white',
+                marginBottom: 4,
+              }}>
+                <div style={{ fontSize: 11, opacity: 0.9, marginBottom: 4 }}>Balance</div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>
+                  {balance.toLocaleString('en-US')} UZS
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  navigate('/payment');
+                  setIsOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  fontSize: 14,
+                  padding: '10px 16px',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.9';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                💰 Top Up Balance
+              </button>
               <button
                 onClick={() => setIsEditing(true)}
                 style={{ 

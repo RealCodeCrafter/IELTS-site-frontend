@@ -143,8 +143,13 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
           {!isRecording ? (
             <button
+              type="button"
               className="btn"
-              onClick={startRecording}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startRecording();
+              }}
               style={{
                 width: '100%',
                 padding: '16px',
@@ -174,8 +179,13 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
                 {formatTime(duration)}
               </div>
               <button
+                type="button"
                 className="btn"
-                onClick={stopRecording}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  stopRecording();
+                }}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -192,7 +202,16 @@ export default function AudioRecorder({ onRecordingComplete, maxDuration = 120 }
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <audio controls style={{ width: '100%' }} src={audioUrl} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn secondary" onClick={resetRecording} style={{ flex: 1 }}>
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resetRecording();
+              }}
+              style={{ flex: 1 }}
+            >
               🔄 Record Again
             </button>
             <div className="muted" style={{ 

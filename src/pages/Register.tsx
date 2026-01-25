@@ -39,7 +39,7 @@ export default function Register() {
         </div>
         <h2 style={{ margin: 0, marginBottom: 8 }}>Create Account</h2>
         <p className="muted" style={{ marginTop: 0, marginBottom: 18 }}>
-          Enter your information to use the IELTS platform.
+          Create an account to practice IELTS tests and check your results.
         </p>
         <form onSubmit={handleSubmit} className="grid">
           <input className="input" placeholder="Login" onChange={(e) => update('login', e.target.value)} />

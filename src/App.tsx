@@ -7,6 +7,7 @@ import ExamPage from './pages/ExamPage';
 import AttemptResult from './pages/AttemptResult';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminExamEditor from './pages/AdminExamEditor';
+import PaymentPage from './pages/PaymentPage';
 import NavBar from './components/NavBar';
 import { useAuth } from './hooks/useAuth';
 
@@ -40,6 +41,7 @@ function App() {
         />
         <Route path="/exam/:id" element={user ? <ExamPage /> : <Navigate to="/" />} />
         <Route path="/attempt/:id" element={user ? <AttemptResult /> : <Navigate to="/" />} />
+        <Route path="/payment" element={user ? <PaymentPage /> : <Navigate to="/" />} />
         <Route
           path="/admin"
           element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />}

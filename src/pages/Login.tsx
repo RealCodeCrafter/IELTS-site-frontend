@@ -38,7 +38,7 @@ export default function Login() {
         </div>
         <h2 style={{ margin: 0, marginBottom: 8 }}>Welcome</h2>
         <p className="muted" style={{ marginTop: 0, marginBottom: 18 }}>
-          Enter your credentials to access the IELTS platform.
+          Enter your credentials to access the IELTS practice platform.
         </p>
         <form onSubmit={handleSubmit} className="grid">
           <input

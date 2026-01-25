@@ -4,17 +4,21 @@ import api from '../api/client';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'exams' | 'attempts'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'exams' | 'attempts' | 'payments'>('stats');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [attempts, setAttempts] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paymentStartDate, setPaymentStartDate] = useState<string>('');
+  const [paymentEndDate, setPaymentEndDate] = useState<string>('');
   const [examForm, setExamForm] = useState({
     title: '',
     type: 'full',
     description: '',
   });
+  const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -35,6 +39,12 @@ export default function AdminDashboard() {
       } else if (activeTab === 'attempts') {
         const res = await api.get('/admin/attempts');
         setAttempts(res.data);
+      } else if (activeTab === 'payments') {
+        const params = new URLSearchParams();
+        if (paymentStartDate) params.append('startDate', paymentStartDate);
+        if (paymentEndDate) params.append('endDate', paymentEndDate);
+        const res = await api.get(`/admin/payments?${params.toString()}`);
+        setPayments(res.data);
       }
     } catch (err) {
       console.error(err);
@@ -83,6 +93,19 @@ export default function AdminDashboard() {
     }
   };
 
+  // Listen for admin tab change events from NavBar
+  useEffect(() => {
+    const handleTabChange = (event: CustomEvent) => {
+      const tab = event.detail as 'stats' | 'users' | 'exams' | 'attempts' | 'payments';
+      setActiveTab(tab);
+    };
+    
+    window.addEventListener('admin-tab-change', handleTabChange as EventListener);
+    return () => {
+      window.removeEventListener('admin-tab-change', handleTabChange as EventListener);
+    };
+  }, []);
+
   return (
     <div>
       <div className="card">
@@ -114,6 +137,13 @@ export default function AdminDashboard() {
             style={{ color: activeTab === 'attempts' ? 'white' : '#0f172a' }}
           >
             📝 Attempts
+          </button>
+          <button
+            className={activeTab === 'payments' ? 'btn' : 'btn ghost'}
+            onClick={() => setActiveTab('payments')}
+            style={{ color: activeTab === 'payments' ? 'white' : '#0f172a' }}
+          >
+            💰 Payments
           </button>
         </div>
       </div>
@@ -373,7 +403,230 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+
+          {activeTab === 'payments' && (
+            <div className="card">
+              <div className="section-title">Payments ({payments.length})</div>
+              
+              {/* Date Filter */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                <input
+                  type="date"
+                  className="input"
+                  value={paymentStartDate}
+                  onChange={(e) => setPaymentStartDate(e.target.value)}
+                  placeholder="Start Date"
+                  style={{ flex: 1, minWidth: '150px' }}
+                />
+                <input
+                  type="date"
+                  className="input"
+                  value={paymentEndDate}
+                  onChange={(e) => setPaymentEndDate(e.target.value)}
+                  placeholder="End Date"
+                  style={{ flex: 1, minWidth: '150px' }}
+                />
+                <button
+                  className="btn"
+                  onClick={loadData}
+                  style={{ minWidth: '100px' }}
+                >
+                  Filter
+                </button>
+                {(paymentStartDate || paymentEndDate) && (
+                  <button
+                    className="btn ghost"
+                    onClick={() => {
+                      setPaymentStartDate('');
+                      setPaymentEndDate('');
+                      loadData();
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {payments.length === 0 ? (
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '40px' }}>
+                  No payments available
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {payments.map((payment) => (
+                    <div
+                      key={payment.id}
+                      style={{
+                        padding: '16px',
+                        background: '#f8fafc',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                          {payment.amount.toLocaleString('en-US')} {payment.currency}
+                        </div>
+                        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>
+                          User: {payment.userLogin || payment.userId}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                          {new Date(payment.createdAt).toLocaleString('en-US')}
+                        </div>
+                        {payment.screenshotUrl && (
+                          <div style={{ marginTop: 8 }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Format screenshot URL correctly
+                                let screenshotUrl = payment.screenshotUrl;
+                                if (!screenshotUrl.startsWith('http')) {
+                                  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+                                  screenshotUrl = screenshotUrl.startsWith('/') 
+                                    ? `${baseUrl}${screenshotUrl}`
+                                    : `${baseUrl}/${screenshotUrl}`;
+                                }
+                                setSelectedScreenshot(screenshotUrl);
+                              }}
+                              style={{
+                                color: '#2563eb',
+                                textDecoration: 'underline',
+                                fontSize: 12,
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                              }}
+                            >
+                              📷 View Screenshot
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: payment.status === 'paid' ? '#dcfce7' : payment.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                          color: payment.status === 'paid' ? '#166534' : payment.status === 'pending' ? '#92400e' : '#991b1b',
+                        }}>
+                          {payment.status.toUpperCase()}
+                        </div>
+                        {payment.status === 'pending' && (
+                          <>
+                            <button
+                              className="btn"
+                              onClick={async () => {
+                                try {
+                                  await api.put(`/admin/payments/${payment.id}/approve`);
+                                  loadData();
+                                } catch (err) {
+                                  alert('Error approving payment');
+                                }
+                              }}
+                              style={{ fontSize: 12, padding: '6px 12px' }}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="btn ghost"
+                              onClick={async () => {
+                                if (!confirm('Are you sure you want to reject this payment?')) return;
+                                try {
+                                  await api.put(`/admin/payments/${payment.id}/reject`);
+                                  loadData();
+                                } catch (err) {
+                                  alert('Error rejecting payment');
+                                }
+                              }}
+                              style={{ fontSize: 12, padding: '6px 12px', color: '#e11d48', borderColor: '#e11d48' }}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
+      )}
+
+      {/* Screenshot Modal */}
+      {selectedScreenshot && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+          onClick={() => setSelectedScreenshot(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '90%',
+              maxHeight: '90%',
+              background: 'white',
+              borderRadius: '12px',
+              padding: '20px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedScreenshot(null)}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ×
+            </button>
+            <img
+              src={selectedScreenshot}
+              alt="Payment Screenshot"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                borderRadius: '8px',
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999">Image not found</text></svg>';
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

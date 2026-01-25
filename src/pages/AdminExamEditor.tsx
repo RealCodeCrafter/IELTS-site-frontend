@@ -243,17 +243,35 @@ export default function AdminExamEditor() {
                         const formData = new FormData();
                         formData.append('file', file);
                         try {
+                          // Don't set Content-Type header manually - axios will set it with boundary
                           const res = await api.post('/admin/upload/audio', formData, {
-                            headers: { 'Content-Type': 'multipart/form-data' },
+                            headers: {
+                              // Remove Content-Type - let axios set it automatically with boundary
+                            },
+                            timeout: 120000, // 2 minutes timeout for large files
                           });
                           const sections = [...(content.listening?.sections || [])];
                           if (sections[sIdx]) {
-                            sections[sIdx].audioUrl = res.data.url || `/upload/${res.data.filename}`;
+                            // Use full URL if available, otherwise construct it
+                            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+                            const audioUrl = res.data.url?.startsWith('http') 
+                              ? res.data.url 
+                              : `${baseUrl}${res.data.url || `/upload/${res.data.filename}`}`;
+                            sections[sIdx].audioUrl = audioUrl;
                             setContent({ ...content, listening: { ...content.listening, sections } });
                             alert('✅ Audio uploaded successfully!');
                           }
                         } catch (err: any) {
-                          alert('❌ Error uploading audio: ' + (err.response?.data?.message || err.message || 'Unknown error'));
+                          console.error('Audio upload error:', err);
+                          let errorMessage = 'Unknown error';
+                          if (err.response) {
+                            errorMessage = err.response.data?.message || err.response.data?.error || `Server error: ${err.response.status}`;
+                          } else if (err.request) {
+                            errorMessage = 'Network error: Could not connect to server. Please check your connection and try again.';
+                          } else {
+                            errorMessage = err.message || 'Unknown error';
+                          }
+                          alert('❌ Error uploading audio: ' + errorMessage);
                         } finally {
                           setLoading(false);
                           // Reset file input

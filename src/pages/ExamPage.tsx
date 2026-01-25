@@ -4,6 +4,9 @@ import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import ExamTimer from '../components/ExamTimer';
 import AudioRecorder from '../components/AudioRecorder';
+import { paymentsApi } from '../api/payments';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Question {
   id: string;
@@ -28,9 +31,13 @@ export default function ExamPage() {
   const [activeSection, setActiveSection] = useState<'listening' | 'reading' | 'writing' | 'speaking'>('listening');
   const [examStarted, setExamStarted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+  const [showTimeUpModal, setShowTimeUpModal] = useState(false);
 
   useEffect(() => {
-    if (id) {
+    if (id && user) {
+      // Load exam - backend will check balance when accessing
       api.get(`/exams/${id}`)
         .then((r) => {
           setExam(r.data);
@@ -38,10 +45,32 @@ export default function ExamPage() {
         })
         .catch((err) => {
           console.error('Exam load error:', err);
-          setLoading(false);
+          if (err.response?.status === 403 || err.response?.data?.message?.includes('balance') || err.response?.data?.message?.includes('Payment') || err.response?.data?.message?.includes('Insufficient')) {
+            setToast({
+              message: 'Insufficient balance. Please top up your balance to take this exam.',
+              type: 'warning',
+            });
+            setTimeout(() => navigate('/payment'), 2000);
+          } else if (err.response?.status === 404) {
+            setLoading(false);
+            setToast({
+              message: 'Exam not found.',
+              type: 'error',
+            });
+            setTimeout(() => navigate('/dashboard'), 2000);
+          } else {
+            setLoading(false);
+            setToast({
+              message: 'Error loading exam. Please try again.',
+              type: 'error',
+            });
+            setTimeout(() => navigate('/dashboard'), 3000);
+          }
         });
+    } else if (id && !user) {
+      navigate('/login');
     }
-  }, [id]);
+  }, [id, user, navigate]);
 
   // Prevent scroll jumping
   useEffect(() => {
@@ -65,22 +94,15 @@ export default function ExamPage() {
     );
   }
 
-  if (!exam) {
-    return (
-      <div className="card">
-        <div style={{ textAlign: 'center', padding: '60px', color: '#e11d48' }}>
-          <div style={{ fontSize: '24px', marginBottom: 12 }}>❌</div>
-          <div>Exam not found</div>
-        </div>
-      </div>
-    );
-  }
-
   const submit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
     if (!user) return;
-    
-    if (window.confirm('Are you sure you want to submit the exam? You cannot change your answers after submission.')) {
+    setShowConfirmSubmit(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setShowConfirmSubmit(false);
+    if (!user) return;
       try {
         // Convert audio blobs to base64
         const processedAnswers: Record<string, string> = {};
@@ -99,17 +121,38 @@ export default function ExamPage() {
         }
         
         await api.post(`/exams/${exam.id}/submit`, { userId: user.id, answers: processedAnswers });
-        navigate('/dashboard');
+        setToast({
+          message: 'Exam submitted successfully! Redirecting to results...',
+          type: 'success',
+        });
+        setTimeout(() => navigate('/dashboard'), 1500);
       } catch (err: any) {
-        alert('Error: ' + (err.response?.data?.message || 'Unknown error'));
+        setToast({
+          message: err.response?.data?.message || 'Error submitting exam. Please try again.',
+          type: 'error',
+        });
       }
-    }
   };
 
   const handleTimeUp = () => {
-    alert('Time is up! The exam will be submitted automatically.');
+    setShowTimeUpModal(true);
+  };
+
+  const handleConfirmTimeUp = () => {
+    setShowTimeUpModal(false);
     submit();
   };
+
+  if (!exam) {
+    return (
+      <div className="card">
+        <div style={{ textAlign: 'center', padding: '60px', color: '#e11d48' }}>
+          <div style={{ fontSize: '24px', marginBottom: 12 }}>❌</div>
+          <div>Exam not found</div>
+        </div>
+      </div>
+    );
+  }
 
   const content = exam.content || {};
   const duration = content.duration || 180;
@@ -333,7 +376,7 @@ export default function ExamPage() {
                         <input
                           className="input"
                           placeholder="Enter your answer"
-                          value={typeof answers[`listening_${q.id}`] === 'string' ? answers[`listening_${q.id}`] : ''}
+                          value={typeof answers[`listening_${q.id}`] === 'string' ? (answers[`listening_${q.id}`] as string) : ''}
                           onChange={(e) => setAnswers({ ...answers, [`listening_${q.id}`]: e.target.value })}
                           style={{ fontSize: 15 }}
                         />
@@ -429,7 +472,7 @@ export default function ExamPage() {
                         <input
                           className="input"
                           placeholder="Enter your answer"
-                          value={typeof answers[`reading_${q.id}`] === 'string' ? answers[`reading_${q.id}`] : ''}
+                          value={typeof answers[`reading_${q.id}`] === 'string' ? (answers[`reading_${q.id}`] as string) : ''}
                           onChange={(e) => setAnswers({ ...answers, [`reading_${q.id}`]: e.target.value })}
                           style={{ fontSize: 15 }}
                         />
@@ -487,12 +530,12 @@ export default function ExamPage() {
                   className="input"
                   style={{ minHeight: 300, fontSize: 15, lineHeight: 1.8 }}
                   placeholder={`Task ${task.taskNumber || tIdx + 1} javobingizni yozing${task.wordCount ? ` (minimum ${task.wordCount} so'z)` : ''}`}
-                  value={typeof answers[`writing_task${task.taskNumber || tIdx + 1}`] === 'string' ? answers[`writing_task${task.taskNumber || tIdx + 1}`] : ''}
+                  value={typeof answers[`writing_task${task.taskNumber || tIdx + 1}`] === 'string' ? (answers[`writing_task${task.taskNumber || tIdx + 1}`] as string) : ''}
                   onChange={(e) => setAnswers({ ...answers, [`writing_task${task.taskNumber || tIdx + 1}`]: e.target.value })}
                 />
                 {answers[`writing_task${task.taskNumber || tIdx + 1}`] && typeof answers[`writing_task${task.taskNumber || tIdx + 1}`] === 'string' && task.wordCount && (
                   <div style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>
-                    Word count: {answers[`writing_task${task.taskNumber || tIdx + 1}`].split(/\s+/).filter((w) => w.length > 0).length} / {task.wordCount}
+                    Word count: {(answers[`writing_task${task.taskNumber || tIdx + 1}`] as string).split(/\s+/).filter((w) => w.length > 0).length} / {task.wordCount}
                   </div>
                 )}
               </div>
@@ -557,10 +600,14 @@ export default function ExamPage() {
                 <textarea
                   className="input"
                   style={{ minHeight: 200, fontSize: 15, lineHeight: 1.8, marginTop: 16 }}
-                  placeholder={`Enter your answer for Part ${part.partNumber || pIdx + 1} (transcript - optional)`}
-                  value={typeof answers[`speaking_part${part.partNumber || pIdx + 1}`] === 'string' ? answers[`speaking_part${part.partNumber || pIdx + 1}`] : ''}
+                  placeholder={`Enter transcript for Part ${part.partNumber || pIdx + 1} (required for scoring - write what you said in the audio)`}
+                  value={typeof answers[`speaking_part${part.partNumber || pIdx + 1}`] === 'string' ? (answers[`speaking_part${part.partNumber || pIdx + 1}`] as string) : ''}
                   onChange={(e) => setAnswers({ ...answers, [`speaking_part${part.partNumber || pIdx + 1}`]: e.target.value })}
+                  required
                 />
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 8 }}>
+                  ⚠️ Iltimos, ovoz yozib yuborilgan bo'lsa, transcript (matn) yozing. Bu baholash uchun zarur.
+                </div>
               </div>
             ))}
           </div>
@@ -568,6 +615,41 @@ export default function ExamPage() {
 
       </form>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Confirm Submit Modal */}
+      {showConfirmSubmit && (
+        <ConfirmModal
+          title="Submit Exam"
+          message="Are you sure you want to submit the exam? You cannot change your answers after submission."
+          onConfirm={handleConfirmSubmit}
+          onCancel={() => setShowConfirmSubmit(false)}
+          confirmText="Submit"
+          cancelText="Cancel"
+          confirmColor="#2563eb"
+        />
+      )}
+
+      {/* Time Up Modal */}
+      {showTimeUpModal && (
+        <ConfirmModal
+          title="Time is Up!"
+          message="Your exam time has ended. The exam will be submitted automatically now."
+          onConfirm={handleConfirmTimeUp}
+          onCancel={() => setShowTimeUpModal(false)}
+          confirmText="Submit Now"
+          cancelText="Wait"
+          confirmColor="#ef4444"
+        />
+      )}
 
       {/* Submit Button - Sticky at bottom */}
       <div className="exam-sticky-footer">
